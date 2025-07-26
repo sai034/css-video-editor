@@ -1,6 +1,3 @@
-
-
-
 'use client';
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useDropzone } from 'react-dropzone';
