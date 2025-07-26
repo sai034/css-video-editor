@@ -46,7 +46,7 @@ const SubtitleEditor = ({ subtitles, setSubtitles, videoDuration }) => {
             if (!block.trim()) continue;
 
             const lines = block.split(/\r?\n/);
-            if (lines.length < 3) continue;
+            if (lines && lines.length < 3) continue;
 
             const timeMatch = lines[1].match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})\s-->\s(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
             if (!timeMatch) continue;
@@ -121,7 +121,7 @@ const SubtitleEditor = ({ subtitles, setSubtitles, videoDuration }) => {
                 const content = event.target.result;
                 const newSubtitles = parseSRT(content);
 
-                if (newSubtitles.length > 0) {
+                if (newSubtitles && newSubtitles.length > 0) {
                     setSubtitles([...subtitles, ...newSubtitles]);
                     toast.success(`Imported subtitles successfully`);
                 } else {
@@ -137,13 +137,13 @@ const SubtitleEditor = ({ subtitles, setSubtitles, videoDuration }) => {
     };
 
     const handleDownloadSubtitles = () => {
-        if (subtitles.length === 0) {
+        if (subtitles && subtitles.length === 0) {
             toast.info('No subtitles to download.');
             return;
         }
 
         const srtContent = subtitles
-            .map((sub, index) => {
+            ?.map((sub, index) => {
                 const formatTime = (seconds) => {
                     const date = new Date(0);
                     date.setSeconds(seconds);
@@ -272,7 +272,7 @@ const SubtitleEditor = ({ subtitles, setSubtitles, videoDuration }) => {
                         onChange={(e) => setSubtitleFontType(e.target.value)}
                         className="p-3 bg-gray-700  rounded w-full outline-none"
                     >
-                        {fontOptions.map((font) => (
+                        {fontOptions?.map((font) => (
                             <option key={font.value} value={font.value}>
                                 {font.label}
                             </option>
@@ -306,12 +306,12 @@ const SubtitleEditor = ({ subtitles, setSubtitles, videoDuration }) => {
                 Subtitle&apos;s  List
             </p>
             <div className="overflow-auto max-h-[200px]">
-                {subtitles.length === 0 ? (
+                {subtitles && subtitles.length === 0 ? (
                     <div className="text-center font-sans text-sm md:text-xl text-gray-400 py-2">
                         No subtitles added
                     </div>
                 ) : (
-                    subtitles.map((s, idx) => {
+                    subtitles?.map((s, idx) => {
                         const isEditing = editingIndex === idx;
 
                         return (
@@ -418,7 +418,7 @@ const SubtitleEditor = ({ subtitles, setSubtitles, videoDuration }) => {
                                                     }
                                                     className="p-2 bg-gray-600 rounded w-full outline-none"
                                                 >
-                                                    {fontOptions.map((font) => (
+                                                    {fontOptions?.map((font) => (
                                                         <option key={font.value} value={font.value}>
                                                             {font.label}
                                                         </option>

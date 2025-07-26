@@ -40,50 +40,49 @@ const ImageOverlay = ({ videoDuration, videoRef, videoHeight = 1080 }) => {
   const editFileInputRef = useRef(null);
   const previousUrlsRef = useRef(new Set());
 
+
   const handleImageUpload = (files) => {
-    console.log('[ImageOverlay] Upload triggered:', files);
     setUploadError(null);
     setIsUploading(true);
 
     if (!files || !files.length) {
-      const errorMsg = 'No image selected. Ensure gallery access is enabled.';
-      toast.error(errorMsg);
-      setUploadError(errorMsg);
+      toast.error('No image selected');
       setIsUploading(false);
-      console.error('[ImageOverlay] No files');
       return;
     }
 
     const file = files[0];
-    if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
-      const errorMsg = `Invalid format: ${file.type}. Use JPEG, PNG, GIF, or WebP.`;
-      toast.error(errorMsg);
-      setUploadError(errorMsg);
-      setIsUploading(false);
-      console.error('[ImageOverlay] Invalid format:', file.type);
-      return;
-    }
-
     const url = URL.createObjectURL(file);
     previousUrlsRef.current.add(url);
-    const imageData = {
-      url,
-      name: file.name,
-      startTime: 0,
-      endTime: videoDuration || 10,
-      position: { x: 0, y: 0 },
-      opacity: 1,
-      size: { width: 200, height: 200 },
-      naturalWidth: 200,
-      naturalHeight: 200,
-    };
-    dispatch(addImageOverlay(imageData));
-    toast.success(`Image "${file.name}" uploaded`);
-    console.log('[ImageOverlay] Dispatched:', imageData);
-    setIsUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
 
+    const img = new Image();
+    img.onload = () => {
+      const defaultSize = Math.min(200, Math.min(img.naturalWidth, img.naturalHeight));
+
+      const imageData = {
+        url,
+        name: file.name,
+        startTime: 0,
+        endTime: videoDuration || 10,
+        position: { x: 0, y: 0 },
+        opacity: 1,
+        size: {
+          width: defaultSize,
+          height: defaultSize
+        },
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+      };
+
+      dispatch(addImageOverlay(imageData));
+      setIsUploading(false);
+    };
+    img.onerror = () => {
+      toast.error('Failed to load image');
+      setIsUploading(false);
+    };
+    img.src = url;
+  };
   const handleEditImageUpload = (files) => {
     console.log('[ImageOverlay] Edit upload triggered:', files);
     setUploadError(null);
@@ -256,12 +255,29 @@ const ImageOverlay = ({ videoDuration, videoRef, videoHeight = 1080 }) => {
     const value = parseFloat(e.target.value);
     if (isNaN(value)) return;
 
-    setEditableImage((prev) => ({
+    // Calculate new size while maintaining aspect ratio
+    let newSize = { ...editableImage.size };
+    newSize[dimension] = value;
+
+    // If holding shift key, maintain aspect ratio
+    if (e.shiftKey) {
+      const aspect = editableImage.naturalWidth / editableImage.naturalHeight;
+      if (dimension === 'width') {
+        newSize.height = value / aspect;
+      } else {
+        newSize.width = value * aspect;
+      }
+    }
+
+    setEditableImage(prev => ({
       ...prev,
-      size: {
-        ...prev.size,
-        [dimension]: value,
-      },
+      size: newSize
+    }));
+
+    // Dispatch to Redux
+    dispatch(updateImageSize({
+      id: editableImage.id,
+      size: newSize
     }));
   };
 
@@ -337,7 +353,7 @@ const ImageOverlay = ({ videoDuration, videoRef, videoHeight = 1080 }) => {
           {isUploading ? 'Uploading...' : 'Tap to select an image'}
         </p>
       </div>
- 
+
 
       {editingImageId && (
         <div className="mt-6">
@@ -378,90 +394,71 @@ const ImageOverlay = ({ videoDuration, videoRef, videoHeight = 1080 }) => {
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-300">
-                Image Width (px)
+                Width: {editableImage.size.width}px
               </label>
-              <input
-                type="range"
-                min="50"
-                max="1920"
-                step="10"
-                value={editableImage.size.width}
-                onChange={(e) => handleSizeChange(e, 'width')}
-                className="w-full cursor-pointer"
-              />
-              <div className="text-center mt-1 text-gray-300">
-                {Math.round(editableImage.size.width)}px
+              <div className="flex gap-2">
+                <input
+                  type="range"
+                  min="50"
+                  max="1920"
+                  step="1"
+                  value={editableImage.size.width}
+                  onChange={(e) => handleSizeChange(e, 'width')}
+                  className="w-full"
+                />
+
               </div>
             </div>
+
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-300">
-                Image Height (px)
+                Height: {editableImage.size.height}px
               </label>
-              <input
-                type="range"
-                min="50"
-                max="1080"
-                step="10"
-                value={editableImage.size.height}
-                onChange={(e) => handleSizeChange(e, 'height')}
-                className="w-full cursor-pointer"
-              />
-              <div className="text-center mt-1 text-gray-300">
-                {Math.round(editableImage.size.height)}px
+              <div className="flex gap-2">
+                <input
+                  type="range"
+                  min="50"
+                  max="1080"
+                  step="1"
+                  value={editableImage.size.height}
+                  onChange={(e) => handleSizeChange(e, 'height')}
+                  className="w-full"
+                />
+
               </div>
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-300">
-                Opacity: {editableImage.opacity.toFixed(1)}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={editableImage.opacity}
-                onChange={(e) =>
-                  setEditableImage((prev) => ({
-                    ...prev,
-                    opacity: parseFloat(e.target.value),
-                  }))
-                }
-                className="w-full cursor-pointer"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-300">
-                Start Time (s): {editableImage.startTime.toFixed(2)}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max={videoDuration || 10}
-                step="0.1"
-                value={editableImage.startTime}
-                onChange={(e) => handleTimeChange(e, 'startTime')}
-                className="w-full cursor-pointer"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-300">
-                End Time (s): {editableImage.endTime.toFixed(2)}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max={videoDuration || 10}
-                step="0.1"
-                value={editableImage.endTime}
-                onChange={(e) => handleTimeChange(e, 'endTime')}
-                className="w-full cursor-pointer"
-              />
             </div>
           </div>
-
+          <div className="grid grid-cols-2 gap-2 mb-2">
+  <div>
+    <label className="block mb-1 text-xs text-gray-300">Start Time (s)</label>
+    <input
+      type="range"
+      min="0"
+      max={videoDuration || 10}
+      step="0.1"
+      value={editableImage.startTime}
+      onChange={(e) => handleTimeChange(e, 'startTime')}
+      className="w-full"
+    />
+    <div className="text-xs text-gray-300">{editableImage.startTime.toFixed(2)}s</div>
+  </div>
+  <div>
+    <label className="block mb-1 text-xs text-gray-300">End Time (s)</label>
+    <input
+      type="range"
+      min="0"
+      max={videoDuration || 10}
+      step="0.1"
+      value={editableImage.endTime}
+      onChange={(e) => handleTimeChange(e, 'endTime')}
+      className="w-full"
+    />
+    <div className="text-xs text-gray-300">{editableImage.endTime.toFixed(2)}s</div>
+  </div>
+</div>
           <div className="grid grid-cols-2 gap-2 mb-2">
             <div>
               <label className="block mb-1 text-xs text-gray-300">Start Time (s)</label>
@@ -539,7 +536,7 @@ const ImageOverlay = ({ videoDuration, videoRef, videoHeight = 1080 }) => {
               {isUploading ? 'Uploading...' : 'Tap to select a new image'}
             </p>
           </div>
-       
+
 
           <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 mt-4">
             <button
@@ -567,7 +564,7 @@ const ImageOverlay = ({ videoDuration, videoRef, videoHeight = 1080 }) => {
             </div>
           ) : (
             <div className="mt-4 space-y-4">
-              {images.map((img) => (
+              {images?.map((img) => (
                 <div key={img.id} className="bg-gray-700 p-3 rounded border border-gray-600">
                   {editingImageId === img.id ? null : (
                     <>
